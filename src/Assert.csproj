@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<LangVersion>12</LangVersion>
+		<TargetFrameworks>netstandard2.0;net6.0;net8.0</TargetFrameworks>
+		<Nullable>enable</Nullable>
+		<AssemblyName>jswerdfeger.BenchmarkDotNet.Assert</AssemblyName>
+		<RootNamespace>jswerdfeger.BenchmarkDotNet.Assert</RootNamespace>
+		<Description>Provides a means of running assertion tests on your benchmarks.</Description>
+		<Version>0.1</Version>
+		<Authors>James Swerdfeger</Authors>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageTags>BenchmarkDotNet</PackageTags>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="BenchmarkDotNet" Version="0.13.2" />
+		<PackageReference Include="PolySharp" Version="1.14.1">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+	
+</Project>
