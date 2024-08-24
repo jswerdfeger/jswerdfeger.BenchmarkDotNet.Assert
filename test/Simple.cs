@@ -42,8 +42,7 @@ public class Simple
 		}
 		[ThreadStatic] public static int IterationCleanupCount = 0;
 
-		#region Method1
-		// Test an int return, with an instance assert method.
+		#region Instance Assert of int return
 		[Benchmark]
 		[Assert(nameof(AssertMethod1))]
 		public int Method1()
@@ -61,8 +60,7 @@ public class Simple
 		[ThreadStatic] public static int AssertMethod1Count = 0;
 		#endregion
 
-		#region Method2
-		// Test an string return, with a static assert method.
+		#region Static Assert of string return
 		[Benchmark]
 		[Assert(nameof(AssertMethod2))]
 		public string Method2()
@@ -80,8 +78,7 @@ public class Simple
 		[ThreadStatic] public static int AssertMethod2Count = 0;
 		#endregion
 
-		#region Method3
-		// Test a method with no return.
+		#region Instance Assert of void return
 		[Benchmark]
 		[Assert(nameof(AssertMethod3))]
 		public void Method3()

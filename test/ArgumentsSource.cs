@@ -42,8 +42,7 @@ public class ArgumentsSource
 		}
 		[ThreadStatic] public static int IterationCleanupCount = 0;
 
-		#region Method1
-		// Test a single argument supplied via an instance property.
+		#region Single argument via instance property
 		public int[] Method1Arguments => [1, 3, 5, 7, 9];
 
 		[Benchmark]
@@ -65,8 +64,7 @@ public class ArgumentsSource
 		[ThreadStatic] public static int AssertMethod1Count = 0;
 		#endregion
 
-		#region Method2
-		// Test multiple arguments supplied via a static method.
+		#region Multiple arguments via static method
 		public static IEnumerable<object[]> Method2Arguments() =>
 		[
 			[1, "one", 1.1],
@@ -94,6 +92,25 @@ public class ArgumentsSource
 		}
 		[ThreadStatic] public static int AssertMethod2Count = 0;
 		#endregion
+
+		#region Empty method arguments are ignored
+		public int[] Method3Arguments => [1, 2, 3, 4, 5];
+
+		[Benchmark]
+		[ArgumentsSource(nameof(Method3Arguments))]
+		[Assert(nameof(AssertMethod3))]
+		public void Method3()
+		{
+			Method3Count++;
+		}
+		[ThreadStatic] public static int Method3Count = 0;
+
+		public bool AssertMethod3()
+		{
+			return Method3Count == ++AssertMethod3Count;
+		}
+		[ThreadStatic] public static int AssertMethod3Count = 0;
+		#endregion
 	}
 
 	[TestMethod]
@@ -102,10 +119,12 @@ public class ArgumentsSource
 		int paramPermutations = 1;
 		int method1Arguments = 5;
 		int method2Arguments = 5;
+		int method3Arguments = 1;
 
 		int method1Iterations = method1Arguments * paramPermutations;
 		int method2Iterations = method2Arguments * paramPermutations;
-		int totalIterations = method1Iterations + method2Iterations;
+		int method3Iterations = method3Arguments * paramPermutations;
+		int totalIterations = method1Iterations + method2Iterations + method3Iterations;
 		BenchmarkAssert.Run<BenchmarkClass>();
 
 		UnitTestAssert.AreEqual(totalIterations, BenchmarkClass.GlobalSetupCount);
@@ -116,6 +135,8 @@ public class ArgumentsSource
 		UnitTestAssert.AreEqual(method1Iterations, BenchmarkClass.AssertMethod1Count);
 		UnitTestAssert.AreEqual(method2Iterations, BenchmarkClass.Method2Permutations.Count);
 		UnitTestAssert.AreEqual(method2Iterations, BenchmarkClass.AssertMethod2Count);
+		UnitTestAssert.AreEqual(method3Iterations, BenchmarkClass.Method3Count);
+		UnitTestAssert.AreEqual(method3Iterations, BenchmarkClass.AssertMethod3Count);
 	}
 
 }

@@ -42,13 +42,19 @@ public class Params
 		}
 		[ThreadStatic] public static int IterationCleanupCount = 0;
 
-		[Params(1, 3, 5)]
+		// Confirm empty works, and is treated as a single iteration.
+		[Params()]
+		public int MyBlank { get; set; }
+
+		// Confirm one value works.
+		[Params(1)]
 		public int MyInt { get; set; }
 
+		// Confirm multiple class values work.
 		[Params("Hello", "World")]
 		public string MyString { get; set; } = default!;
 
-		[Params(3.14, 2.718)]
+		[Params(3.14, 2.718, 1.609)]
 		public double MyDouble { get; set; }
 
 		public bool AssertMethod(string actual)
@@ -92,7 +98,7 @@ public class Params
 	[TestMethod]
 	public void Test()
 	{
-		int paramPermutations = 3 * 2 * 2;
+		int paramPermutations = 1 * 1 * 2 * 3;
 		int method1Arguments = 1;
 		int method2Arguments = 1;
 		int method3Arguments = 1;
