@@ -7,10 +7,10 @@ using UnitTestAssert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 namespace jswerdfeger.BenchmarkDotNet.Assert.Test;
 
 /// <summary>
-/// Tests using all arguments and parameter options within the same class.
+/// Tests using <see cref="ParamsSourceAttribute"/>.
 /// </summary>
 [TestClass]
-public class All
+public class ParamsSource
 {
 	public class BenchmarkClass
 	{
@@ -42,66 +42,80 @@ public class All
 		}
 		[ThreadStatic] public static int IterationCleanupCount = 0;
 
+		// Test an instance source property that results a single result.
+		[ParamsSource(nameof(MyBoolSource))]
+		public bool MyBool { get; set; }
+		public bool[] MyBoolSource => [true];
+
+		// Test a static source property that supplies multiple values.
 		[ParamsSource(nameof(MyIntSource))]
 		public int MyInt { get; set; }
-		public static int[] MyIntSource => [1, 3, 5];
+		public static int[] MyIntSource => [10, 100, 1000];
 
-		[Params("Hello", "Hola", "Bonjour")]
-		public string MyString { get; set; } = default!;
+		// Test an instance source method that has null as a option.
+		[ParamsSource(nameof(MyStringSource))]
+		public string? MyString { get; set; } = default!;
+		public string?[] MyStringSource() => [null, "Hello", "World"];
 
-		[ParamsAllValues]
-		public bool MyBool { get; set; }
+		// Test a static source IEnumerable.
+		[ParamsSource(nameof(MyDoubleSource))]
+		public double MyDouble { get; set; }
+		public static IEnumerable<object?> MyDoubleSource()
+		{
+			yield return 3.14;
+			yield return 2.718;
+		}
 
-		public int[][] MyArguments =>
-		[
-			[1, 2],
-			[3, 4],
-			[5, 6],
-			[7, 8],
-		];
-
-		public bool AssertMethod(int arg1, int arg2, string actual)
+		public bool AssertMethod(string actual)
 		{
 			AssertMethodCount++;
-			return actual == MyInt + " " + MyString + " " + MyBool + " - " + (arg1 + arg2);
+			return actual == (MyBool + " " + MyInt + " " + MyString + " " + MyDouble);
 		}
 		[ThreadStatic] public static int AssertMethodCount = 0;
 
 		[Benchmark]
-		[ArgumentsSource(nameof(MyArguments))]
 		[Assert(nameof(AssertMethod))]
-		public string Method1(int arg1, int arg2)
+		public string Method1()
 		{
-			var result = $"{MyInt} {MyString} {MyBool} - {(arg1 + arg2)}";
+			var result = MyBool + " " + MyInt + " " + MyString + " " + MyDouble;
 			UnitTestAssert.IsTrue(Method1Permutations.Add(result), $"A permutation has shown up more than once.");
 			return result;
 		}
 		[ThreadStatic] public static HashSet<string> Method1Permutations = [];
 
 		[Benchmark]
-		[Arguments(10, 11)]
-		[Arguments(12, 13)]
-		[Arguments(14, 15)]
 		[Assert(nameof(AssertMethod))]
-		public string Method2(int arg1, int arg2)
+		public string Method2()
 		{
-			var result = string.Format("{0} {1} {2} - {3}", MyInt, MyString, MyBool, arg1 + arg2);
+			var result = $"{MyBool} {MyInt} {MyString} {MyDouble}";
 			UnitTestAssert.IsTrue(Method2Permutations.Add(result), $"A permutation has shown up more than once.");
 			return result;
 		}
 		[ThreadStatic] public static HashSet<string> Method2Permutations = [];
+
+		[Benchmark]
+		[Assert(nameof(AssertMethod))]
+		public string Method3()
+		{
+			var result = string.Format("{0} {1} {2} {3}", MyBool, MyInt, MyString, MyDouble);
+			UnitTestAssert.IsTrue(Method3Permutations.Add(result), $"A permutation has shown up more than once.");
+			return result;
+		}
+		[ThreadStatic] public static HashSet<string> Method3Permutations = [];
 	}
 
 	[TestMethod]
 	public void Test()
 	{
-		int paramPermutations = 3 * 3 * 2;
-		int method1Arguments = 4;
-		int method2Arguments = 3;
+		int paramPermutations = 1 * 3 * 3 * 2;
+		int method1Arguments = 1;
+		int method2Arguments = 1;
+		int method3Arguments = 1;
 
 		int method1Iterations = method1Arguments * paramPermutations;
 		int method2Iterations = method2Arguments * paramPermutations;
-		int totalIterations = method1Iterations + method2Iterations;
+		int method3Iterations = method3Arguments * paramPermutations;
+		int totalIterations = method1Iterations + method2Iterations + method3Iterations;
 		BenchmarkAssert.Run<BenchmarkClass>();
 
 		UnitTestAssert.AreEqual(totalIterations, BenchmarkClass.GlobalSetupCount);
@@ -110,6 +124,7 @@ public class All
 		UnitTestAssert.AreEqual(totalIterations, BenchmarkClass.IterationCleanupCount);
 		UnitTestAssert.AreEqual(method1Iterations, BenchmarkClass.Method1Permutations.Count);
 		UnitTestAssert.AreEqual(method2Iterations, BenchmarkClass.Method2Permutations.Count);
+		UnitTestAssert.AreEqual(method3Iterations, BenchmarkClass.Method3Permutations.Count);
 		UnitTestAssert.AreEqual(totalIterations, BenchmarkClass.AssertMethodCount);
 	}
 

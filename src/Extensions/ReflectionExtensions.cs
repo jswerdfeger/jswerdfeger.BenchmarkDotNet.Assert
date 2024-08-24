@@ -30,6 +30,16 @@ internal static class ReflectionExtensions
 			.Where(mi => mi.IsDefined(attributeType, inherit: false));
 	}
 
+	internal static Type GetReturnType(this MemberInfo memberInfo)
+	{
+		return memberInfo.MemberType switch
+		{
+			MemberTypes.Property => ((PropertyInfo)memberInfo).PropertyType,
+			MemberTypes.Field => ((FieldInfo)memberInfo).FieldType,
+			_ => throw new ArgumentException($"Member must be a property or field.")
+		};
+	}
+
 #if !(NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER)
 	public static MethodInfo? GetMethod(this Type type, string name, BindingFlags bindingAttr, Type[] types)
 		=> type.GetMethod(name, bindingAttr, binder: null, types, modifiers: null);
@@ -52,6 +62,30 @@ internal static class ReflectionExtensions
 		return false;
 	}
 #endif
+
+	internal static void SetValue(this MemberInfo memberInfo, object? instance, object? value)
+	{
+		if (memberInfo.MemberType == MemberTypes.Property)
+		{
+			((PropertyInfo)memberInfo).SetValue(instance, value);
+		}
+		else if (memberInfo.MemberType == MemberTypes.Field)
+		{
+			((FieldInfo)memberInfo).SetValue(instance, value);
+		}
+		else
+		{
+			throw new ArgumentException($"Member must be a property or field.");
+		}
+	}
+
+	internal static bool TryGetCustomAttribute<TAttribute>(this MethodInfo methodInfo,
+		[MaybeNullWhen(false)] out TAttribute customAttribute)
+	where TAttribute : Attribute
+	{
+		customAttribute = methodInfo.GetCustomAttribute<TAttribute>();
+		return customAttribute is not null;
+	}
 
 	internal static bool TryGetCustomAttribute<TAttribute>(this PropertyInfo propertyInfo,
 		[MaybeNullWhen(false)] out TAttribute customAttribute)

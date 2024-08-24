@@ -5,7 +5,6 @@ using BenchmarkDotNet.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
 
 namespace jswerdfeger.BenchmarkDotNet.Assert;
@@ -13,70 +12,68 @@ namespace jswerdfeger.BenchmarkDotNet.Assert;
 internal class BenchmarkType
 {
 	private readonly Type _type;
+
 	private readonly MethodInfo? _globalSetup;
 	private readonly MethodInfo? _globalCleanup;
 	private readonly MethodInfo? _iterationSetup;
 	private readonly MethodInfo? _iterationCleanup;
 
+	// Parameterizations are constant per type. That is, they are created on a fresh instance
+	// without running GlobalSetup. (This makes sense, since otherwise you could wind up with an
+	// impossible situation of not knowing what depends on what.) Thus, we create and cache all
+	// possible parameterizations right away.
 	private readonly List<Parameterization> _parameterizations;
+
+	private readonly List<BenchmarkMethod> _benchmarkMethods;
 
 	#region Construction
 	internal BenchmarkType(Type type)
 	{
 		_type = type;
+
 		_globalSetup = type.GetInstanceMethodWithAttribute(typeof(GlobalSetupAttribute));
 		_globalCleanup = type.GetInstanceMethodWithAttribute(typeof(GlobalCleanupAttribute));
 		_iterationSetup = type.GetInstanceMethodWithAttribute(typeof(IterationSetupAttribute));
 		_iterationCleanup = type.GetInstanceMethodWithAttribute(typeof(IterationCleanupAttribute));
 
-		_parameterizations = GetParameterizations(type);
+		var instance = CreateDefaultInstance();
+		_parameterizations = GetParameterizations(instance);
+		_benchmarkMethods = GetBenchmarkMethods(instance);
 	}
 
-	private static List<Parameterization> GetParameterizations(Type type)
+	private static List<Parameterization> GetParameterizations(object instance)
 	{
+		var type = instance.GetType();
 		List<Parameterization> results = [];
 		foreach (var pi in type.GetProperties())
 		{
+			// btw, AllowMultiple is false on all the Params attributes.
 			if (pi.TryGetCustomAttribute<ParamsAttribute>(out var paramsAttribute))
 			{
-				if (!pi.CanWrite)
-				{
-					throw new ArgumentException($"Property {pi} must have a public setter in order to use {nameof(ParamsAttribute)}.");
-				}
-
 				var values = paramsAttribute.Values;
-				if (values.Length == 0)
-				{
-					throw new ArgumentException($"{nameof(ParamsAttribute)} on property {pi} cannot be empty.");
-				}
-
-				results.Add(new(pi, paramsAttribute.Values));
+				if (values.Length > 0) results.Add(new(pi, values));
 			}
-			else if (pi.TryGetCustomAttribute<ParamsAllValuesAttribute>(out var allValuesAttribute))
+			else if (pi.IsDefined(typeof(ParamsAllValuesAttribute), inherit: false))
 			{
-				if (pi.PropertyType == typeof(bool))
-				{
-					results.Add(new(pi, [true, false]));
-				}
-				else if (pi.PropertyType == typeof(bool?))
-				{
-					results.Add(new(pi, [true, false, null]));
-				}
-				else
-				{
-					if (pi.PropertyType.IsEnum
-						|| (Nullable.GetUnderlyingType(pi.PropertyType)?.IsEnum ?? false))
-					{
-						throw new NotSupportedException($"Sorry, at this time assert does not support {nameof(ParamsAllValuesAttribute)} on enums.");
-					}
-
-					throw new InvalidOperationException($"{nameof(ParamsAllValuesAttribute)} can only be used on bool, or bool? properties.");
-				}
+				results.Add(Parameterization.ForAllValues(pi));
 			}
-			else if (pi.TryGetCustomAttribute<ParamsSourceAttribute>(out _))
+			else if (pi.TryGetCustomAttribute<ParamsSourceAttribute>(out var sourceAttribute))
 			{
-				throw new NotSupportedException($"Sorry, at this time {nameof(ParamsSourceAttribute)} is not supported.");
+				results.Add(new(pi, sourceAttribute.GetValues(instance)));
 			}
+		}
+
+		return results;
+	}
+
+	private static List<BenchmarkMethod> GetBenchmarkMethods(object instance)
+	{
+		var type = instance.GetType();
+		var benchmarkMethods = type.GetInstanceMethodsWithAttribute(typeof(BenchmarkAttribute));
+		List<BenchmarkMethod> results = [];
+		foreach (var benchmarkMethod in benchmarkMethods)
+		{
+			results.Add(new(benchmarkMethod, instance));
 		}
 
 		return results;
@@ -88,42 +85,35 @@ internal class BenchmarkType
 	/// </summary>
 	public void AssertAll()
 	{
-		var benchmarkMethods = _type.GetInstanceMethodsWithAttribute(typeof(BenchmarkAttribute));
-		foreach (var benchmarkMethod in benchmarkMethods)
+		foreach (var benchmarkMethod in _benchmarkMethods)
 		{
 			Assert(benchmarkMethod);
 		}
 	}
 
-	private void Assert(MethodInfo method)
+	private void Assert(BenchmarkMethod benchmarkMethod)
 	{
-		BenchmarkMethod benchmarkMethod = new(this, method);
 		var globalSetup = _globalSetup;
 		var globalCleanup = _globalCleanup;
 		var iterationSetup = _iterationSetup;
 		var iterationCleanup = _iterationCleanup;
 
-		// BenchmarkDotNet will permit you to have ArgumentsSource as an instance variable, but
-		// if you do so, it WILL NOT make use of your [Params] attributes, nor will it call
-		// GlobalSetup. Welp, that's probably for the best, considering that opens the door to
-		// some potential horrid circular dependency, where GlobalSetup depends on params depends
-		// on arguments depends on blah blah blah. I'll just do as they do.
-		var arguments = benchmarkMethod.GetArguments(CreateInstance()).ToList();
+		var methodArgumentSets = benchmarkMethod.GetArgumentSets();
 
 		var parameterizations = _parameterizations;
 		int[] valuesIndex = new int[parameterizations.Count];
 		bool hasMore = true;
 		while (hasMore)
 		{
-			foreach (object?[]? argumentSet in arguments)
+			foreach (object?[]? argumentSet in methodArgumentSets)
 			{
-				var instance = CreateInstance();
+				var instance = CreateDefaultInstance();
 				for (int i = 0; i < parameterizations.Count; i++)
 				{
 					var parameterization = parameterizations[i];
 					var valueIndex = valuesIndex[i];
 					Debug.Assert(valueIndex < parameterization.Values.Length);
-					parameterization.Property.SetValue(instance, parameterization.Values[valueIndex]);
+					parameterization.Member.SetValue(instance, parameterization.Values[valueIndex]);
 				}
 
 				globalSetup?.Invoke(instance, null);
@@ -143,7 +133,7 @@ internal class BenchmarkType
 		}
 	}
 
-	private object CreateInstance()
+	private object CreateDefaultInstance()
 	{
 		return Activator.CreateInstance(_type)
 			?? throw new ArgumentException($"Failed to create an instance of {_type}.");

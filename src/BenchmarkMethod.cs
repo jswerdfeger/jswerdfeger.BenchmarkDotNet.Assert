@@ -3,8 +3,8 @@
 
 using BenchmarkDotNet.Attributes;
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
@@ -12,10 +12,17 @@ namespace jswerdfeger.BenchmarkDotNet.Assert;
 
 internal class BenchmarkMethod
 {
-	private readonly BenchmarkType _benchmarkType;
+	private static readonly List<object?[]?> NoArguments = [null];
 
 	private readonly MethodInfo _benchmarkMethod;
-	private readonly MethodInfo? _argumentsSource;
+
+	// Like for Params attributes, the Arguments attributes are setup on an empty instance; they
+	// cannot have any dependency on a parameter or GlobalSetup. Thus, we can create and cache it
+	// immediately.
+	//
+	// This is designed to be exactly what you pass to the MethodInfo.Invoke method. Thus, if you
+	// have no arguments to pass, this will store a single "null" entry.
+	private readonly List<object?[]?> _argumentSets;
 
 	// You may wonder why we bother going to the effort to create a delegate to perform the test.
 	// Couldn't we just store the MethodInfo for benchmarkMethod and assertMethod, and call them
@@ -27,7 +34,7 @@ internal class BenchmarkMethod
 	// method that accepts by-ref-like parameters or returns a by-ref-like.
 	//
 	// But we can still test them by simply creating a new method that effectively calls those
-	// methods but uses the-equivalent managed types instead. And because your benchmark method
+	// methods but uses the equivalent managed types instead. And because your benchmark method
 	// might return a span, we want to ensure we pass that same span reference to your assert
 	// method, otherwise operations like equality checks would fail (they would be different spans
 	// due to them pointing to different spots in memory). That's why we create a delegate that
@@ -35,47 +42,52 @@ internal class BenchmarkMethod
 	private readonly TestMethod _testMethod;
 
 	#region Construction
-	internal BenchmarkMethod(BenchmarkType benchmarkType, MethodInfo benchmarkMethod)
+	internal BenchmarkMethod(MethodInfo benchmarkMethod, object instance)
 	{
-		_benchmarkType = benchmarkType;
-
 		if (benchmarkMethod.IsStatic)
 		{
 			throw new InvalidOperationException($"Benchmark methods cannot be static.");
 		}
 
 		_benchmarkMethod = benchmarkMethod;
-		_argumentsSource = GetArgumentsSource(benchmarkMethod);
+		_argumentSets = GetArgumentsSets(benchmarkMethod, instance);
 
 		var assertMethod = GetAssertMethod(benchmarkMethod);
 		_testMethod = TestMethodGenerator.Generate(benchmarkMethod, assertMethod);
 	}
 
-	private static MethodInfo? GetArgumentsSource(MethodInfo benchmarkMethod)
+	private static List<object?[]?> GetArgumentsSets(MethodInfo benchmarkMethod, object instance)
 	{
-		var argumentsAttribute = benchmarkMethod.GetCustomAttribute<ArgumentsAttribute>();
-		if (argumentsAttribute is not null)
+		// BenchmarkDotNet will just ignore any Arguments attribute if your method has no
+		// parameters.
+		int benchmarkParametersLength = benchmarkMethod.GetParameters().Length;
+		if (benchmarkParametersLength == 0) return NoArguments;
+
+		// Beyond this point, since the benchmark method has arguments, you must supply them to
+		// us one way or another.
+		List<object?[]?> results = [];
+		if (benchmarkMethod.TryGetCustomAttribute<ArgumentsSourceAttribute>(out var sourceAttribute))
 		{
-			throw new NotSupportedException($"Sorry, at this time the {nameof(ArgumentsAttribute)} is not supported. Use {nameof(ArgumentsSourceAttribute)} instead.");
+			results.AddRange(sourceAttribute.GetValues(instance, benchmarkMethod));
 		}
 
-		var argumentsSource = benchmarkMethod.GetCustomAttribute<ArgumentsSourceAttribute>();
-		if (argumentsSource is null)
+		var argumentsAttributes = benchmarkMethod.GetCustomAttributes<ArgumentsAttribute>();
+		foreach (var argumentsAttribute in argumentsAttributes)
 		{
-			if (benchmarkMethod.GetParameters().Length != 0)
+			var values = argumentsAttribute.Values;
+			if (values.Length != benchmarkParametersLength)
 			{
-				throw new ArgumentException($"Method {benchmarkMethod} has arguments, but is missing a {nameof(ArgumentsSourceAttribute)}.");
+				throw new ArgumentException($"Arguments defined in {nameof(ArgumentsAttribute)} do not match the parameters in method {benchmarkMethod}.");
 			}
 
-			return null;
+			results.Add(values);
 		}
 
-		var declaringType = benchmarkMethod.DeclaringType!;
-		var argumentsProperty = declaringType.GetProperty(argumentsSource.Name)?.GetGetMethod()
-			?? declaringType.GetMethod(argumentsSource.Name, [])
-			?? throw new ArgumentException($"No public property or void method was found in {benchmarkMethod.DeclaringType} with the name {argumentsSource.Name}.");
-
-		return argumentsProperty;
+		if (results.Count == 0)
+		{
+			throw new ArgumentException($"No arguments were supplied for method {benchmarkMethod}.");
+		}
+		return results;
 	}
 
 	private static MethodInfo GetAssertMethod(MethodInfo benchmarkMethod)
@@ -142,45 +154,9 @@ internal class BenchmarkMethod
 		}
 	}
 
-	/// <summary>
-	/// Gets the arguments to use in calling this benchmark method.
-	/// </summary>
-	public IEnumerable<object?[]?> GetArguments(object instance)
+	public IReadOnlyList<object?[]?> GetArgumentSets()
 	{
-		var argumentsSource = _argumentsSource;
-		if (argumentsSource is null)
-		{
-			yield return null;
-			yield break;
-		}
-
-		var value = argumentsSource.Invoke(argumentsSource.IsStatic ? null : instance, null)
-			?? throw new ArgumentException($"Arguments defined in {argumentsSource.Name} cannot be null.");
-		var arguments = value as IEnumerable
-			?? throw new ArgumentException($"Arguments defined in {argumentsSource.Name} must be IEnumerable.");
-
-		var methodParameters = _benchmarkMethod.GetParameters();
-		foreach (var argumentSet in arguments)
-		{
-			if (methodParameters.Length == 1)
-			{
-				yield return [argumentSet];
-				continue;
-			}
-			else if (argumentSet is not IEnumerable || argumentSet is string)
-			{
-				throw new ArgumentException($"Arguments defined in {nameof(ArgumentsSourceAttribute)} do not match the parameters in method {_benchmarkMethod}.");
-			}
-
-			var array = new ArrayList();
-			foreach (var item in (IEnumerable)argumentSet)
-			{
-				array.Add(item);
-			}
-			object?[] objectArray = array.ToArray();
-
-			yield return objectArray;
-		}
+		Debug.Assert(_argumentSets.Count >= 1);
+		return _argumentSets;
 	}
-
 }
