@@ -10,6 +10,9 @@ using System.Reflection;
 
 namespace jswerdfeger.BenchmarkDotNet.Assert;
 
+/// <summary>
+/// Stores assert information for a method with the <see cref="BenchmarkAttribute"/>.
+/// </summary>
 internal class BenchmarkMethod
 {
 	private static readonly List<object?[]?> NoArguments = [null];
@@ -40,6 +43,8 @@ internal class BenchmarkMethod
 	// due to them pointing to different spots in memory). That's why we create a delegate that
 	// both calls the benchmark as well as your assert method.
 	private readonly TestMethod _testMethod;
+
+	public string Name => _benchmarkMethod.Name;
 
 	#region Construction
 	internal BenchmarkMethod(MethodInfo benchmarkMethod, object instance)
@@ -145,18 +150,16 @@ internal class BenchmarkMethod
 	}
 	#endregion
 
-	public void Assert(object instance, object?[]? arguments)
-	{
-		bool assertResult = _testMethod(instance, arguments);
-		if (!assertResult)
-		{
-			throw new Exception($"Test failed on {_benchmarkMethod.Name} in {instance.GetType()}.");
-		}
-	}
-
 	public IReadOnlyList<object?[]?> GetArgumentSets()
 	{
 		Debug.Assert(_argumentSets.Count >= 1);
 		return _argumentSets;
 	}
+
+	public bool RunAssert(object instance, object?[]? arguments)
+	{
+		return _testMethod(instance, arguments);
+	}
+
+
 }

@@ -63,6 +63,32 @@ internal static class ReflectionExtensions
 	}
 #endif
 
+	internal static object? GetValue(this MemberInfo memberInfo, object? instance)
+	{
+		if (memberInfo.MemberType == MemberTypes.Property)
+		{
+			return ((PropertyInfo)memberInfo).GetValue(instance);
+		}
+		else if (memberInfo.MemberType == MemberTypes.Field)
+		{
+			return ((FieldInfo)memberInfo).GetValue(instance);
+		}
+		else
+		{
+			throw new ArgumentException($"Member must be a property or field.");
+		}
+	}
+
+	/// <summary>
+	/// Confirms this <see cref="MemberInfo"/> can be written to. That is, it must be a
+	/// non-init-only field, or a writeable property.
+	/// </summary>
+	internal static bool IsWriteable(this MemberInfo memberInfo)
+	{
+		return (memberInfo is PropertyInfo pi && pi.CanWrite)
+			|| (memberInfo is FieldInfo fi && !fi.IsInitOnly);
+	}
+
 	internal static void SetValue(this MemberInfo memberInfo, object? instance, object? value)
 	{
 		if (memberInfo.MemberType == MemberTypes.Property)
@@ -79,19 +105,11 @@ internal static class ReflectionExtensions
 		}
 	}
 
-	internal static bool TryGetCustomAttribute<TAttribute>(this MethodInfo methodInfo,
+	internal static bool TryGetCustomAttribute<TAttribute>(this MemberInfo memberInfo,
 		[MaybeNullWhen(false)] out TAttribute customAttribute)
 	where TAttribute : Attribute
 	{
-		customAttribute = methodInfo.GetCustomAttribute<TAttribute>();
-		return customAttribute is not null;
-	}
-
-	internal static bool TryGetCustomAttribute<TAttribute>(this PropertyInfo propertyInfo,
-		[MaybeNullWhen(false)] out TAttribute customAttribute)
-	where TAttribute : Attribute
-	{
-		customAttribute = propertyInfo.GetCustomAttribute<TAttribute>();
+		customAttribute = memberInfo.GetCustomAttribute<TAttribute>();
 		return customAttribute is not null;
 	}
 

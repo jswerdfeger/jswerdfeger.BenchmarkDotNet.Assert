@@ -40,7 +40,10 @@ public static class BenchmarkAssert
 	private static void AssertType(Type type)
 	{
 		BenchmarkType benchmarkType = new(type);
-		benchmarkType.AssertAll();
+		foreach (var testCase in benchmarkType.BuildTestCases())
+		{
+			testCase.Run();
+		}
 	}
 
 }
