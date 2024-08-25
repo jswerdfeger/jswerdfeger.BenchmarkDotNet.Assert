@@ -4,7 +4,7 @@
 using BenchmarkDotNet.Attributes;
 using UnitTestAssert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
-namespace jswerdfeger.BenchmarkDotNet.Assert.Test;
+namespace jswerdfeger.BenchmarkDotNet.Assert.Tests;
 
 /// <summary>
 /// Tests using <see cref="ParamsAllValuesAttribute"/>.
@@ -14,6 +14,7 @@ public class ParamsAllValues
 {
 	public class BenchmarkClass
 	{
+		#region Init and Cleanup
 		[GlobalSetup]
 		public void GlobalSetup()
 		{
@@ -41,12 +42,21 @@ public class ParamsAllValues
 			IterationCleanupCount++;
 		}
 		[ThreadStatic] public static int IterationCleanupCount = 0;
+		#endregion
 
+		#region Params
 		[ParamsAllValues]
 		public bool MyBool { get; set; }
 
 		[ParamsAllValues]
 		public bool? MyNullableBool { get; set; }
+
+		private void AssertParameters()
+		{
+			ParamsAssert.Assert(this, nameof(MyBool));
+			ParamsAssert.Assert(this, nameof(MyNullableBool));
+		}
+		#endregion
 
 		public bool AssertMethod(string actual)
 		{
@@ -59,6 +69,7 @@ public class ParamsAllValues
 		[Assert(nameof(AssertMethod))]
 		public string Method1()
 		{
+			AssertParameters();
 			var result = $"{MyBool} {MyNullableBool?.ToString() ?? "null"}";
 			UnitTestAssert.IsTrue(Method1Permutations.Add(result), $"A permutation has shown up more than once.");
 			return result;
@@ -69,6 +80,7 @@ public class ParamsAllValues
 		[Assert(nameof(AssertMethod))]
 		public string Method2()
 		{
+			AssertParameters();
 			var result = string.Format("{0} {1}", MyBool, MyNullableBool?.ToString() ?? "null");
 			UnitTestAssert.IsTrue(Method2Permutations.Add(result), $"A permutation has shown up more than once.");
 			return result;

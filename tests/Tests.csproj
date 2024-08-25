@@ -5,6 +5,7 @@
 		<TargetFrameworks>net48;net6.0;net8.0</TargetFrameworks>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<RootNamespace>jswerdfeger.BenchmarkDotNet.Assert.Tests</RootNamespace>
 
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>

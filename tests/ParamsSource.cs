@@ -4,16 +4,17 @@
 using BenchmarkDotNet.Attributes;
 using UnitTestAssert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
-namespace jswerdfeger.BenchmarkDotNet.Assert.Test;
+namespace jswerdfeger.BenchmarkDotNet.Assert.Tests;
 
 /// <summary>
-/// Tests using <see cref="ParamsAttribute"/>.
+/// Tests using <see cref="ParamsSourceAttribute"/>.
 /// </summary>
 [TestClass]
-public class Params
+public class ParamsSource
 {
 	public class BenchmarkClass
 	{
+		#region Init and Cleanup
 		[GlobalSetup]
 		public void GlobalSetup()
 		{
@@ -41,26 +42,46 @@ public class Params
 			IterationCleanupCount++;
 		}
 		[ThreadStatic] public static int IterationCleanupCount = 0;
+		#endregion
 
-		// Confirm empty works, and is treated as a single iteration.
-		[Params()]
-		public int MyBlank { get; set; }
+		#region Params
+		// Test an instance source property that results a single result.
+		[ParamsSource(nameof(MyBoolSource))]
+		public bool MyBool { get; set; }
+		public bool[] MyBoolSource => [true];
 
-		// Confirm one value works.
-		[Params(1)]
+		// Test a static source property that supplies multiple values.
+		[ParamsSource(nameof(MyIntSource))]
 		public int MyInt { get; set; }
+		public static int[] MyIntSource => [10, 100, 1000];
 
-		// Confirm multiple class values work.
-		[Params("Hello", "World")]
-		public string MyString { get; set; } = default!;
+		// Test an instance source method that has null as a option.
+		[ParamsSource(nameof(MyStringSource))]
+		public string? MyString { get; set; } = default!;
+		public string?[] MyStringSource() => [null, "Hello", "World"];
 
-		[Params(3.14, 2.718, 1.609)]
+		// Test a static source IEnumerable.
+		[ParamsSource(nameof(MyDoubleSource))]
 		public double MyDouble { get; set; }
+		public static IEnumerable<object?> MyDoubleSource()
+		{
+			yield return 3.14;
+			yield return 2.718;
+		}
+
+		private void AssertParameters()
+		{
+			ParamsAssert.Assert(this, nameof(MyBool));
+			ParamsAssert.Assert(this, nameof(MyInt));
+			ParamsAssert.Assert(this, nameof(MyString));
+			ParamsAssert.Assert(this, nameof(MyDouble));
+		}
+		#endregion
 
 		public bool AssertMethod(string actual)
 		{
 			AssertMethodCount++;
-			return actual == (MyInt + " " + MyString + " " + MyDouble);
+			return actual == (MyBool + " " + MyInt + " " + MyString + " " + MyDouble);
 		}
 		[ThreadStatic] public static int AssertMethodCount = 0;
 
@@ -68,7 +89,8 @@ public class Params
 		[Assert(nameof(AssertMethod))]
 		public string Method1()
 		{
-			var result = MyInt + " " + MyString + " " + MyDouble;
+			AssertParameters();
+			var result = MyBool + " " + MyInt + " " + MyString + " " + MyDouble;
 			UnitTestAssert.IsTrue(Method1Permutations.Add(result), $"A permutation has shown up more than once.");
 			return result;
 		}
@@ -78,7 +100,8 @@ public class Params
 		[Assert(nameof(AssertMethod))]
 		public string Method2()
 		{
-			var result = $"{MyInt} {MyString} {MyDouble}";
+			AssertParameters();
+			var result = $"{MyBool} {MyInt} {MyString} {MyDouble}";
 			UnitTestAssert.IsTrue(Method2Permutations.Add(result), $"A permutation has shown up more than once.");
 			return result;
 		}
@@ -88,7 +111,8 @@ public class Params
 		[Assert(nameof(AssertMethod))]
 		public string Method3()
 		{
-			var result = string.Format("{0} {1} {2}", MyInt, MyString, MyDouble);
+			AssertParameters();
+			var result = string.Format("{0} {1} {2} {3}", MyBool, MyInt, MyString, MyDouble);
 			UnitTestAssert.IsTrue(Method3Permutations.Add(result), $"A permutation has shown up more than once.");
 			return result;
 		}
@@ -98,7 +122,7 @@ public class Params
 	[TestMethod]
 	public void Test()
 	{
-		int paramPermutations = 1 * 1 * 2 * 3;
+		int paramPermutations = 1 * 3 * 3 * 2;
 		int method1Arguments = 1;
 		int method2Arguments = 1;
 		int method3Arguments = 1;

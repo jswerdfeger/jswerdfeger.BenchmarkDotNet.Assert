@@ -1,22 +1,20 @@
 // Copyright (c) 2024 James Swerdfeger
 // Licensed under the MIT license.
 
-#if (NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER)
-
 using BenchmarkDotNet.Attributes;
 using UnitTestAssert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
-namespace jswerdfeger.BenchmarkDotNet.Assert.Test;
+namespace jswerdfeger.BenchmarkDotNet.Assert.Tests;
 
 /// <summary>
-/// Tests using spans in the method arguments. This confirms that methods with by-ref-like
-/// arguments can still be tested.
+/// Tests using a simple benchmarking class with no arguments or parameters.
 /// </summary>
 [TestClass]
-public class Spans
+public class Simple
 {
 	public class BenchmarkClass
 	{
+		#region Init and Cleanup
 		[GlobalSetup]
 		public void GlobalSetup()
 		{
@@ -44,76 +42,56 @@ public class Spans
 			IterationCleanupCount++;
 		}
 		[ThreadStatic] public static int IterationCleanupCount = 0;
+		#endregion
 
-		#region Method1
-		// Test a method with no arguments and a span return.
+		#region Instance Assert of int return
 		[Benchmark]
 		[Assert(nameof(AssertMethod1))]
-		public ReadOnlySpan<char> Method1()
+		public int Method1()
 		{
 			Method1Count++;
-			return "Hello";
+			return 1;
 		}
 		[ThreadStatic] public static int Method1Count = 0;
 
-		public bool AssertMethod1(ReadOnlySpan<char> actual)
+		public bool AssertMethod1(int actual)
 		{
 			AssertMethod1Count++;
-			return actual.Equals("Hello", StringComparison.Ordinal);
+			return actual == 1;
 		}
 		[ThreadStatic] public static int AssertMethod1Count = 0;
 		#endregion
 
-		#region Method2
-		// Test a method that uses ReadOnlySpan<char> arguments passed by strings, and returns
-		// a string.
-		public IEnumerable<string> Arguments2 =>
-		[
-			"Hello", "Hola", "Bonjour"
-		];
-
+		#region Static Assert of string return
 		[Benchmark]
-		[ArgumentsSource(nameof(Arguments2))]
 		[Assert(nameof(AssertMethod2))]
-		public string Method2(ReadOnlySpan<char> chars)
+		public string Method2()
 		{
 			Method2Count++;
-			return string.Concat(chars, "!");
+			return "Hello World";
 		}
 		[ThreadStatic] public static int Method2Count = 0;
 
-		public bool AssertMethod2(ReadOnlySpan<char> chars, string actual)
+		public static bool AssertMethod2(string actual)
 		{
 			AssertMethod2Count++;
-			return actual == string.Concat(chars, "!");
+			return actual == "Hello World";
 		}
 		[ThreadStatic] public static int AssertMethod2Count = 0;
 		#endregion
 
-		#region Method3
-		// Test a method that uses Span<int> arguments, and returns a Span<int>.
-		public IEnumerable<int[]> Arguments3 =>
-		[
-			[1, 2, 3],
-			[1, 2, 3, 4, 5],
-			[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-		];
-
+		#region Instance Assert of void return
 		[Benchmark]
-		[ArgumentsSource(nameof(Arguments3))]
 		[Assert(nameof(AssertMethod3))]
-		public Span<int> Method3(Span<int> ints)
+		public void Method3()
 		{
 			Method3Count++;
-			return ints[0..2];
 		}
 		[ThreadStatic] public static int Method3Count = 0;
 
-		// Test a static assert method.
-		public static bool AssertMethod3(Span<int> ints, Span<int> actual)
+		public bool AssertMethod3()
 		{
-			AssertMethod3Count++;
-			return actual == ints.Slice(0, 2);
+			return Method3Count == ++AssertMethod3Count;
 		}
 		[ThreadStatic] public static int AssertMethod3Count = 0;
 		#endregion
@@ -124,8 +102,8 @@ public class Spans
 	{
 		int paramPermutations = 1;
 		int method1Arguments = 1;
-		int method2Arguments = 3;
-		int method3Arguments = 3;
+		int method2Arguments = 1;
+		int method3Arguments = 1;
 
 		int method1Iterations = method1Arguments * paramPermutations;
 		int method2Iterations = method2Arguments * paramPermutations;
@@ -141,9 +119,8 @@ public class Spans
 		UnitTestAssert.AreEqual(method1Iterations, BenchmarkClass.AssertMethod1Count);
 		UnitTestAssert.AreEqual(method2Iterations, BenchmarkClass.Method2Count);
 		UnitTestAssert.AreEqual(method2Iterations, BenchmarkClass.AssertMethod2Count);
-		UnitTestAssert.AreEqual(method3Iterations, BenchmarkClass.Method2Count);
-		UnitTestAssert.AreEqual(method3Iterations, BenchmarkClass.AssertMethod2Count);
+		UnitTestAssert.AreEqual(method3Iterations, BenchmarkClass.Method3Count);
+		UnitTestAssert.AreEqual(method3Iterations, BenchmarkClass.AssertMethod3Count);
 	}
 
 }
-#endif
