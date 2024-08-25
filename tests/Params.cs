@@ -49,16 +49,16 @@ public class Params
 		[Params()]
 		public int MyBlank { get; set; }
 
-		// Confirm one value works.
+		// Confirm one value works, and on a field.
 		[Params(1)]
-		public int MyInt { get; set; }
+		public int MyInt;
 
 		// Confirm multiple class values work.
 		[Params("Hello", "World")]
 		public string MyString { get; set; } = default!;
 
 		[Params(3.14, 2.718, 1.609)]
-		public double MyDouble { get; set; }
+		public double MyDouble;
 
 		private void AssertParameters()
 		{

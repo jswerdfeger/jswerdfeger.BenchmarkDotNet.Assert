@@ -47,7 +47,7 @@ public class ParamsSource
 		#region Params
 		// Test an instance source property that results a single result.
 		[ParamsSource(nameof(MyBoolSource))]
-		public bool MyBool { get; set; }
+		public bool MyBool;
 		public bool[] MyBoolSource => [true];
 
 		// Test a static source property that supplies multiple values.
@@ -57,7 +57,7 @@ public class ParamsSource
 
 		// Test an instance source method that has null as a option.
 		[ParamsSource(nameof(MyStringSource))]
-		public string? MyString { get; set; } = default!;
+		public string? MyString = default!;
 		public string?[] MyStringSource() => [null, "Hello", "World"];
 
 		// Test a static source IEnumerable.

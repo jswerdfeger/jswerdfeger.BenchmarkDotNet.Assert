@@ -46,7 +46,7 @@ public class All
 
 		#region Params
 		[ParamsSource(nameof(MyIntSource))]
-		public int MyInt { get; set; }
+		public int MyInt;
 		public static int[] MyIntSource => [1, 3, 5];
 
 		[Params("Hello", "Hola", "Bonjour")]

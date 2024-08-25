@@ -11,6 +11,12 @@ namespace jswerdfeger.BenchmarkDotNet.Assert;
 
 internal static class ReflectionExtensions
 {
+	internal static IEnumerable<MemberInfo> GetFieldsAndProperties(this Type type)
+	{
+		foreach (var field in type.GetFields()) yield return field;
+		foreach (var property in type.GetProperties()) yield return property;
+	}
+
 	internal static Type? GetGenericTypeDefinitionOrDefault(this Type type)
 	{
 		return type.IsGenericType ? type.GetGenericTypeDefinition() : null;

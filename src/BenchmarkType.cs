@@ -48,29 +48,29 @@ internal class BenchmarkType
 	{
 		var type = instance.GetType();
 		ParameterSets parameterSets = new ParameterSets();
-		foreach (var pi in type.GetProperties())
+		foreach (var member in type.GetFieldsAndProperties())
 		{
 			// btw, AllowMultiple is false on all the Params attributes.
 			// Also, BenchmarkDotNet only supports one at a time.
 			bool hasParams = false;
 
-			if (pi.TryGetCustomAttribute<ParamsAttribute>(out var paramsAttribute))
+			if (member.TryGetCustomAttribute<ParamsAttribute>(out var paramsAttribute))
 			{
 				hasParams = true;
-				parameterSets.Add(pi, paramsAttribute.Values);
+				parameterSets.Add(member, paramsAttribute.Values);
 			}
 
-			if (pi.TryGetCustomAttribute<ParamsAllValuesAttribute>(out var allValuesAttribute))
+			if (member.TryGetCustomAttribute<ParamsAllValuesAttribute>(out var allValuesAttribute))
 			{
 				if (hasParams)
 				{
 					throw new ArgumentException($"You cannot use more than one of ({nameof(ParamsAttribute)}, {nameof(ParamsAllValuesAttribute)}, {nameof(ParamsSourceAttribute)}) on a single property/field.");
 				}
 				hasParams = true;
-				parameterSets.Add(pi, allValuesAttribute.GetValues(pi));
+				parameterSets.Add(member, allValuesAttribute.GetValues(member));
 			}
 
-			if (pi.TryGetCustomAttribute<ParamsSourceAttribute>(out var sourceAttribute))
+			if (member.TryGetCustomAttribute<ParamsSourceAttribute>(out var sourceAttribute))
 			{
 				if (hasParams)
 				{
@@ -78,7 +78,7 @@ internal class BenchmarkType
 				}
 				hasParams = true;
 
-				parameterSets.Add(pi, sourceAttribute.GetValues(instance));
+				parameterSets.Add(member, sourceAttribute.GetValues(instance));
 			}
 		}
 

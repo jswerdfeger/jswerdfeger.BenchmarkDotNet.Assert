@@ -49,7 +49,7 @@ public class ParamsAllValues
 		public bool MyBool { get; set; }
 
 		[ParamsAllValues]
-		public bool? MyNullableBool { get; set; }
+		public bool? MyNullableBool;
 
 		private void AssertParameters()
 		{
