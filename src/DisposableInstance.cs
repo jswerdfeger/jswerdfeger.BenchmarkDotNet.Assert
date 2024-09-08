@@ -22,8 +22,8 @@ internal readonly record struct DisposableInstance : IDisposable
 
 	public void Dispose()
 	{
-		_globalCleanup?.Invoke(Instance, null);
 		_iterationCleanup?.Invoke(Instance, null);
+		_globalCleanup?.Invoke(Instance, null);
 	}
 
 }

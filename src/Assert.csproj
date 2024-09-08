@@ -7,7 +7,7 @@
 		<AssemblyName>jswerdfeger.BenchmarkDotNet.Assert</AssemblyName>
 		<RootNamespace>jswerdfeger.BenchmarkDotNet.Assert</RootNamespace>
 		<Description>Provides a means of running assertion tests on your benchmarks.</Description>
-		<Version>0.4</Version>
+		<Version>0.4.1</Version>
 		<Authors>James Swerdfeger</Authors>
 		<Copyright>James Swerdfeger</Copyright>
 		<PackageTags>BenchmarkDotNet;assert;test</PackageTags>
